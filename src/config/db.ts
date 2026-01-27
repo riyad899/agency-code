@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import { MongoClient, Db } from "mongodb";
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://riyadus300_db_user:RFV9VvmTNHcmDEcJ@cluster0.1thelew.mongodb.net/myDatabase?retryWrites=true&w=majority&appName=Cluster0';
@@ -6,7 +5,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://riyadus300_db_user
 let db: Db | null = null;
 let client: MongoClient | null = null;
 
-// Connect using MongoDB native driver (for models that use native driver)
+// Connect using MongoDB native driver
 export const connectDB = async (): Promise<Db> => {
   if (db) {
     return db;
@@ -46,3 +45,4 @@ export const closeDB = async (): Promise<void> => {
 connectDB().catch((err) => {
   console.error("Failed to initialize MongoDB connection:", err);
 });
+

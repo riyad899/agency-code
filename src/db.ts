@@ -1,77 +1,179 @@
-import mongoose from 'mongoose'
+import { MongoClient, Db, Collection, ObjectId } from 'mongodb'
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://riyadus300_db_user:RFV9VvmTNHcmDEcJ@cluster0.1thelew.mongodb.net/myDatabase?retryWrites=true&w=majority&appName=Cluster0'
 
-// User schema to store basic profile and Firebase UID
-const userSchema = new mongoose.Schema({
-  firebaseUid: { type: String, required: true, unique: true },
-  email: { type: String, required: true, index: true },
-  displayName: { type: String, required: true },
-  phoneNumber: String,
-  address: String,
-  photoURL: String,
-  role: { type: String, default: 'user', enum: ['user', 'admin', 'moderator'] },
-  status: { type: String, default: 'active', enum: ['active', 'inactive', 'suspended', 'pending'] },
-  termsAccepted: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-})
+let db: Db | null = null
+let client: MongoClient | null = null
 
-export const User = mongoose.models.User || mongoose.model('User', userSchema)
+// TypeScript interfaces for collections
+export interface IUser {
+  _id?: ObjectId
+  firebaseUid: string
+  email: string
+  displayName: string
+  phoneNumber?: string
+  address?: string
+  photoURL?: string
+  role: 'user' | 'admin' | 'moderator'
+  status: 'active' | 'inactive' | 'suspended' | 'pending'
+  termsAccepted: boolean
+  createdAt: Date
+  updatedAt: Date
+}
 
-// Product schema
-const productSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  description: { type: String, required: true },
-  price: { type: Number, required: true },
-  category: { type: String, required: true },
-  stock: { type: Number, default: 0 },
-  imageUrl: { type: String },
-  createdBy: { type: String, required: true }, // Firebase UID
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-})
+export interface IProduct {
+  _id?: ObjectId
+  name: string
+  description: string
+  price: number
+  category: string
+  stock: number
+  imageUrl?: string
+  createdBy: string // Firebase UID
+  createdAt: Date
+  updatedAt: Date
+}
 
-export const Product = mongoose.models.Product || mongoose.model('Product', productSchema)
+export interface IPasswordResetToken {
+  _id?: ObjectId
+  email: string
+  token: string
+  expiresAt: Date
+  used: boolean
+  createdAt: Date
+}
 
-// Password Reset Token schema
-const passwordResetTokenSchema = new mongoose.Schema({
-  email: { type: String, required: true, index: true },
-  token: { type: String, required: true, unique: true },
-  expiresAt: { type: Date, required: true },
-  used: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now },
-})
-
-export const PasswordResetToken = mongoose.models.PasswordResetToken || mongoose.model('PasswordResetToken', passwordResetTokenSchema)
-
-export async function connectDb() {
-  if (mongoose.connection.readyState === 1) return mongoose
+// Connection function
+export async function connectDb(): Promise<Db> {
+  if (db) return db
 
   try {
-    await mongoose.connect(MONGODB_URI, {
+    client = new MongoClient(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     })
+    await client.connect()
+    db = client.db()
     console.log('Connected to MongoDB')
-    return mongoose
+
+    // Create indexes
+    await createIndexes()
+
+    return db
   } catch (error) {
     console.error('MongoDB connection error:', error)
     throw error
   }
 }
 
+// Get database instance
+export function getDb(): Db {
+  if (!db) {
+    throw new Error('Database not initialized. Call connectDb first.')
+  }
+  return db
+}
+
+// Collection getters
+export function getUsersCollection(): Collection<IUser> {
+  return getDb().collection<IUser>('users')
+}
+
+export function getProductsCollection(): Collection<IProduct> {
+  return getDb().collection<IProduct>('products')
+}
+
+export function getPasswordResetTokensCollection(): Collection<IPasswordResetToken> {
+  return getDb().collection<IPasswordResetToken>('passwordresettokens')
+}
+
+// Create indexes
+async function createIndexes() {
+  try {
+    const usersCol = getUsersCollection()
+    await usersCol.createIndex({ firebaseUid: 1 }, { unique: true })
+    await usersCol.createIndex({ email: 1 })
+
+    const tokensCol = getPasswordResetTokensCollection()
+    await tokensCol.createIndex({ email: 1 })
+    await tokensCol.createIndex({ token: 1 }, { unique: true })
+    await tokensCol.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+
+    console.log('MongoDB indexes created')
+  } catch (error) {
+    console.error('Error creating indexes:', error)
+  }
+}
+
+// Helper function for upserting user profile
 export async function upsertUserProfile(fields: {
   firebaseUid: string
   email: string
   displayName?: string
   phoneNumber?: string
   photoURL?: string
+  address?: string
+  role?: 'user' | 'admin' | 'moderator'
+  status?: 'active' | 'inactive' | 'suspended' | 'pending'
+  termsAccepted?: boolean
 }) {
-  const { firebaseUid, email, displayName, phoneNumber, photoURL } = fields
-  return User.updateOne(
-    { firebaseUid },
-    { firebaseUid, email, displayName: displayName || '', phoneNumber: phoneNumber || '', photoURL: photoURL || '' },
+  const usersCol = getUsersCollection()
+  const now = new Date()
+
+  const updateDoc: Partial<IUser> = {
+    firebaseUid: fields.firebaseUid,
+    email: fields.email,
+    displayName: fields.displayName || '',
+    phoneNumber: fields.phoneNumber || '',
+    address: fields.address || '',
+    photoURL: fields.photoURL || '',
+    role: fields.role || 'user',
+    status: fields.status || 'active',
+    termsAccepted: fields.termsAccepted !== undefined ? fields.termsAccepted : false,
+    updatedAt: now,
+  }
+
+  return usersCol.updateOne(
+    { firebaseUid: fields.firebaseUid },
+    {
+      $set: updateDoc,
+      $setOnInsert: { createdAt: now }
+    },
     { upsert: true }
   )
+}
+
+// Legacy exports for backwards compatibility (will be removed)
+export const User = {
+  findOne: (query: any) => getUsersCollection().findOne(query),
+  find: (query: any) => getUsersCollection().find(query),
+  updateOne: (filter: any, update: any, options?: any) => getUsersCollection().updateOne(filter, update, options),
+  create: (doc: any) => getUsersCollection().insertOne(doc),
+  deleteOne: (filter: any) => getUsersCollection().deleteOne(filter),
+}
+
+export const Product = {
+  findOne: (query: any) => getProductsCollection().findOne(query),
+  find: (query: any) => getProductsCollection().find(query),
+  updateOne: (filter: any, update: any, options?: any) => getProductsCollection().updateOne(filter, update, options),
+  create: (doc: any) => getProductsCollection().insertOne(doc),
+  deleteOne: (filter: any) => getProductsCollection().deleteOne(filter),
+}
+
+export const PasswordResetToken = {
+  findOne: (query: any) => getPasswordResetTokensCollection().findOne(query),
+  find: (query: any) => getPasswordResetTokensCollection().find(query),
+  updateOne: (filter: any, update: any, options?: any) => getPasswordResetTokensCollection().updateOne(filter, update, options),
+  create: (doc: any) => getPasswordResetTokensCollection().insertOne(doc),
+  deleteOne: (filter: any) => getPasswordResetTokensCollection().deleteOne(filter),
+}
+
+// Close connection
+export async function closeDb(): Promise<void> {
+  if (client) {
+    await client.close()
+    db = null
+    client = null
+    console.log('MongoDB connection closed')
+  }
 }

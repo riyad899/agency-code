@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { auth } from '../firebase'
-import { User } from '../db'
+import { getUsersCollection } from '../db'
 
 /**
  * POST /api/create-user
@@ -40,14 +40,23 @@ export async function createUser(req: Request, res: Response) {
 
     // upsert user into MongoDB so profile is stored
     try {
-      await User.updateOne(
+      await getUsersCollection().updateOne(
         { firebaseUid: userRecord.uid },
         {
-          firebaseUid: userRecord.uid,
-          email: userRecord.email || email,
-          displayName: userRecord.displayName || displayName || '',
-          phoneNumber: userRecord.phoneNumber || phoneNumber || '',
-          photoURL: userRecord.photoURL || photoURL || '',
+          $set: {
+            firebaseUid: userRecord.uid,
+            email: userRecord.email || email,
+            displayName: userRecord.displayName || displayName || '',
+            phoneNumber: userRecord.phoneNumber || phoneNumber || '',
+            photoURL: userRecord.photoURL || photoURL || '',
+            updatedAt: new Date()
+          },
+          $setOnInsert: {
+            role: 'user',
+            status: 'active',
+            termsAccepted: true,
+            createdAt: new Date()
+          }
         },
         { upsert: true }
       )

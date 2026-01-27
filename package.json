@@ -18,7 +18,6 @@
     "firebase-admin": "latest",
     "jsonwebtoken": "latest",
     "mongodb": "^7.0.0",
-    "mongoose": "latest",
     "nodemailer": "^7.0.12"
   },
   "devDependencies": {

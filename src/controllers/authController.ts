@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { auth } from '../firebase'
-import { User, upsertUserProfile, PasswordResetToken } from '../db'
+import { getUsersCollection, upsertUserProfile, getPasswordResetTokensCollection } from '../db'
 import axios from 'axios'
 import { signSessionToken } from '../firebase'
 import crypto from 'crypto'
@@ -89,7 +89,7 @@ export async function registerWithCookie(req: Request, res: Response) {
 
     // Create user profile in MongoDB
     try {
-      await User.create({
+      await getUsersCollection().insertOne({
         firebaseUid: userRecord.uid,
         email: userRecord.email || email,
         displayName: userRecord.displayName || fullName,
@@ -97,6 +97,7 @@ export async function registerWithCookie(req: Request, res: Response) {
         address: address || '',
         photoURL: photo || '',
         role: 'user', // Default role
+        status: 'active',
         termsAccepted: true, // Auto-accept since user filled the form
         createdAt: new Date(),
         updatedAt: new Date()
@@ -188,14 +189,23 @@ export async function loginWithCookie(req: Request, res: Response) {
 
     // ensure user in DB (upsert)
     try {
-      await User.updateOne(
+      await getUsersCollection().updateOne(
         { firebaseUid: uid },
         {
-          firebaseUid: uid,
-          email,
-          displayName: decoded.name || '',
-          phoneNumber: decoded.phone_number || '',
-          photoURL: decoded.picture || '',
+          $set: {
+            firebaseUid: uid,
+            email,
+            displayName: decoded.name || '',
+            phoneNumber: decoded.phone_number || '',
+            photoURL: decoded.picture || '',
+            updatedAt: new Date()
+          },
+          $setOnInsert: {
+            role: 'user',
+            status: 'active',
+            termsAccepted: true,
+            createdAt: new Date()
+          }
         },
         { upsert: true }
       )
@@ -374,26 +384,27 @@ export async function googleRegister(req: Request, res: Response) {
     const userRecord = await auth.getUser(uid)
 
     // Check if user already exists in MongoDB
-    const existingUser = await User.findOne({ firebaseUid: uid })
+    const existingUser = await getUsersCollection().findOne({ firebaseUid: uid })
 
     // Upsert user profile to MongoDB
     try {
       if (!existingUser) {
         // Create new user with role
-        await User.create({
+        await getUsersCollection().insertOne({
           firebaseUid: uid,
           email: userRecord.email || decoded.email || '',
           displayName: userRecord.displayName || decoded.name || '',
           phoneNumber: userRecord.phoneNumber || decoded.phone_number || '',
           photoURL: userRecord.photoURL || decoded.picture || '',
           role: 'user', // Default role
+          status: 'active',
           termsAccepted: true,
           createdAt: new Date(),
           updatedAt: new Date()
         })
       } else {
         // Update existing user
-        await User.updateOne(
+        await getUsersCollection().updateOne(
           { firebaseUid: uid },
           {
             $set: {
@@ -475,7 +486,7 @@ export async function getProfile(req: Request, res: Response) {
 
   try {
     // Try to get user from MongoDB
-    const user = await User.findOne({ firebaseUid: firebaseUser.uid })
+    const user = await getUsersCollection().findOne({ firebaseUid: firebaseUser.uid })
 
     if (!user) {
       // User not in DB yet, return Firebase data only
@@ -516,7 +527,7 @@ export async function getMe(req: Request, res: Response) {
   }
 
   try {
-    const user = await User.findOne({ firebaseUid: uid })
+    const user = await getUsersCollection().findOne({ firebaseUid: uid })
 
     if (!user) {
       // User not in DB yet
@@ -571,18 +582,19 @@ export async function forgotPassword(req: Request, res: Response) {
     // Store token in database (expires in 1 hour)
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
 
-    await PasswordResetToken.create({
+    await getPasswordResetTokensCollection().insertOne({
       email,
       token: hashedToken,
       expiresAt,
       used: false,
+      createdAt: new Date(),
     })
 
     // Create reset link
     const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`
 
     // Get user display name from MongoDB
-    const mongoUser = await User.findOne({ firebaseUid: userRecord.uid })
+    const mongoUser = await getUsersCollection().findOne({ firebaseUid: userRecord.uid })
     const displayName = mongoUser?.displayName || userRecord.displayName
 
     // Send email
@@ -617,7 +629,7 @@ export async function resetPassword(req: Request, res: Response) {
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex')
 
     // Find valid token
-    const resetTokenDoc = await PasswordResetToken.findOne({
+    const resetTokenDoc = await getPasswordResetTokensCollection().findOne({
       email,
       token: hashedToken,
       used: false,
@@ -642,11 +654,13 @@ export async function resetPassword(req: Request, res: Response) {
     })
 
     // Mark token as used
-    resetTokenDoc.used = true
-    await resetTokenDoc.save()
+    await getPasswordResetTokensCollection().updateOne(
+      { _id: resetTokenDoc._id },
+      { $set: { used: true } }
+    )
 
     // Get user display name
-    const mongoUser = await User.findOne({ firebaseUid: userRecord.uid })
+    const mongoUser = await getUsersCollection().findOne({ firebaseUid: userRecord.uid })
     const displayName = mongoUser?.displayName || userRecord.displayName
 
     // Send confirmation email

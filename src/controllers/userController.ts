@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { User } from '../db'
+import { getUsersCollection } from '../db'
 import { auth } from '../firebase'
 
 /**
@@ -50,7 +50,7 @@ export async function getUser(req: Request, res: Response) {
   }
 
   try {
-    const user = await User.findOne({ firebaseUid: uid }).lean()
+    const user = await getUsersCollection().findOne({ firebaseUid: uid })
     if (!user) return res.status(404).json({ error: 'User not found' })
     return res.json(user)
   } catch (err) {
@@ -68,11 +68,12 @@ export async function listUsers(req: Request, res: Response) {
   }
 
   try {
-    const users = await User.find()
-      .select('firebaseUid email displayName photoURL createdAt')
+    const users = await getUsersCollection()
+      .find()
+      .project({ firebaseUid: 1, email: 1, displayName: 1, photoURL: 1, createdAt: 1 })
       .sort({ createdAt: -1 })
       .limit(100)
-      .lean()
+      .toArray()
 
     return res.json(users)
   } catch (err) {
@@ -110,13 +111,13 @@ export async function updateUser(req: Request, res: Response) {
     }
 
     // Update MongoDB profile
-    await User.updateOne(
+    await getUsersCollection().updateOne(
       { firebaseUid: uid },
-      { $set: { email, displayName, phoneNumber, photoURL } },
+      { $set: { email, displayName, phoneNumber, photoURL, updatedAt: new Date() } },
       { upsert: true }
     )
 
-    const updated = await User.findOne({ firebaseUid: uid }).lean()
+    const updated = await getUsersCollection().findOne({ firebaseUid: uid })
     return res.json(updated)
   } catch (err) {
     return res.status(500).json({ error: (err as Error).message })
@@ -140,7 +141,7 @@ export async function deleteUser(req: Request, res: Response) {
     await auth.deleteUser(uid as string)
 
     // Delete from MongoDB
-    await User.deleteOne({ firebaseUid: uid })
+    await getUsersCollection().deleteOne({ firebaseUid: uid })
 
     return res.json({ ok: true })
   } catch (err) {

@@ -1,4 +1,4 @@
-import { connectDb, Product } from './db'
+import { connectDb, getProductsCollection } from './db'
 
 const dummyProducts = [
   {
@@ -99,12 +99,19 @@ async function seedProducts() {
     console.log('Connected to database')
 
     // Clear existing products (optional)
-    const existingCount = await Product.countDocuments()
+    const existingCount = await getProductsCollection().countDocuments()
     console.log(`Found ${existingCount} existing products`)
 
+    // Add timestamps to products
+    const productsWithTimestamps = dummyProducts.map(p => ({
+      ...p,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }))
+
     // Insert dummy products
-    const result = await Product.insertMany(dummyProducts)
-    console.log(`✅ Successfully added ${result.length} dummy products!`)
+    const result = await getProductsCollection().insertMany(productsWithTimestamps)
+    console.log(`✅ Successfully added ${result.insertedCount} dummy products!`)
 
     process.exit(0)
   } catch (error) {

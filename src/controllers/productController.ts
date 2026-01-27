@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
-import { Product } from '../db'
+import { getProductsCollection } from '../db'
+import { ObjectId } from 'mongodb'
 
 /**
  * Check if request is authenticated
@@ -45,9 +46,10 @@ export async function listProducts(req: Request, res: Response) {
       ]
     }
 
-    const products = await Product.find(query)
+    const products = await getProductsCollection()
+      .find(query)
       .sort({ createdAt: -1 })
-      .lean()
+      .toArray()
 
     return res.json(products)
   } catch (err) {
@@ -61,7 +63,8 @@ export async function listProducts(req: Request, res: Response) {
  */
 export async function getProduct(req: Request, res: Response) {
   try {
-    const product = await Product.findById(req.params.id).lean()
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+    const product = await getProductsCollection().findOne({ _id: new ObjectId(id) })
 
     if (!product) {
       return res.status(404).json({ error: 'Product not found' })
@@ -94,7 +97,7 @@ export async function createProduct(req: Request, res: Response) {
   }
 
   try {
-    const product = await Product.create({
+    const result = await getProductsCollection().insertOne({
       name,
       description,
       price: Number(price),
@@ -102,8 +105,11 @@ export async function createProduct(req: Request, res: Response) {
       stock: Number(stock) || 0,
       imageUrl: imageUrl || '',
       createdBy: userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     })
 
+    const product = await getProductsCollection().findOne({ _id: result.insertedId })
     return res.status(201).json(product)
   } catch (err) {
     return res.status(500).json({ error: (err as Error).message })
@@ -125,7 +131,8 @@ export async function updateProduct(req: Request, res: Response) {
   }
 
   try {
-    const product = await Product.findById(req.params.id)
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+    const product = await getProductsCollection().findOne({ _id: new ObjectId(id) })
 
     if (!product) {
       return res.status(404).json({ error: 'Product not found' })
@@ -143,19 +150,22 @@ export async function updateProduct(req: Request, res: Response) {
 
     const { name, description, price, category, stock, imageUrl } = req.body
 
-    // Update fields
-    if (name !== undefined) product.name = name
-    if (description !== undefined) product.description = description
-    if (price !== undefined) product.price = Number(price)
-    if (category !== undefined) product.category = category
-    if (stock !== undefined) product.stock = Number(stock)
-    if (imageUrl !== undefined) product.imageUrl = imageUrl
+    // Build update object
+    const updateDoc: any = { updatedAt: new Date() }
+    if (name !== undefined) updateDoc.name = name
+    if (description !== undefined) updateDoc.description = description
+    if (price !== undefined) updateDoc.price = Number(price)
+    if (category !== undefined) updateDoc.category = category
+    if (stock !== undefined) updateDoc.stock = Number(stock)
+    if (imageUrl !== undefined) updateDoc.imageUrl = imageUrl
 
-    product.updatedAt = new Date()
+    await getProductsCollection().updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateDoc }
+    )
 
-    await product.save()
-
-    return res.json(product)
+    const updatedProduct = await getProductsCollection().findOne({ _id: new ObjectId(id) })
+    return res.json(updatedProduct)
   } catch (err) {
     return res.status(500).json({ error: (err as Error).message })
   }
@@ -176,7 +186,8 @@ export async function deleteProduct(req: Request, res: Response) {
   }
 
   try {
-    const product = await Product.findById(req.params.id)
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+    const product = await getProductsCollection().findOne({ _id: new ObjectId(id) })
 
     if (!product) {
       return res.status(404).json({ error: 'Product not found' })
@@ -192,7 +203,7 @@ export async function deleteProduct(req: Request, res: Response) {
       }
     }
 
-    await Product.findByIdAndDelete(req.params.id)
+    await getProductsCollection().deleteOne({ _id: new ObjectId(id) })
 
     return res.json({ message: 'Product deleted successfully' })
   } catch (err) {
