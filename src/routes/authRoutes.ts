@@ -25,8 +25,8 @@ router.post('/google-register', googleRegister)
 router.post('/logout', logout)
 
 // User profile
-router.get('/profile', getProfile)
-router.get('/me', getMe)
+router.get('/auth/profile', getProfile)
+router.get('/auth/me', getMe)
 
 // Password reset
 router.post('/forgot-password', forgotPassword)

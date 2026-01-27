@@ -69,12 +69,24 @@ export async function registerWithCookie(req: Request, res: Response) {
   }
 
   try {
+    // Format phone number to E.164 if provided
+    let formattedPhone: string | undefined = undefined
+    if (phoneNum) {
+      // If phone doesn't start with +, assume US number and add +1
+      if (!phoneNum.startsWith('+')) {
+        formattedPhone = `+1${phoneNum.replace(/\D/g, '')}`
+      } else {
+        formattedPhone = phoneNum.replace(/\D/g, '')
+        formattedPhone = `+${formattedPhone}`
+      }
+    }
+
     // Create Firebase user
     const userRecord = await auth.createUser({
       email,
       password,
       displayName: fullName,
-      phoneNumber: phoneNum,
+      phoneNumber: formattedPhone,
       photoURL: photo
     })
 
@@ -93,7 +105,7 @@ export async function registerWithCookie(req: Request, res: Response) {
         firebaseUid: userRecord.uid,
         email: userRecord.email || email,
         displayName: userRecord.displayName || fullName,
-        phoneNumber: phoneNum || '',
+        phoneNumber: formattedPhone || phoneNum || '',
         address: address || '',
         photoURL: photo || '',
         role: 'user', // Default role
