@@ -44,3 +44,15 @@ export interface ServiceFilters {
     max?: number;
   };
 }
+
+export interface ServiceCategory {
+  _id?: ObjectId;
+  id: string; // Auto-generated from name (e.g., "web-development")
+  name: string; // URL-friendly name (e.g., "web-development")
+  title: string; // Display name (e.g., "Web Development")
+  description: string;
+  icon?: string;
+  status: 'active' | 'inactive';
+  createdAt: Date;
+  updatedAt?: Date;
+}

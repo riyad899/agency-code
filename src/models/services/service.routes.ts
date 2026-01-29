@@ -6,7 +6,10 @@ import {
   getServicesByCategory,
   updateService,
   deleteService,
-  getCategories
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory
 } from "./service.controller";
 import { verifyToken, requireAdmin } from "../../middlewares/auth.middleware";
 
@@ -20,6 +23,12 @@ router.get("/:id", getServiceById);
 router.patch("/test/:id", updateService); // Temporary public update route for testing
 
 // Admin-only routes
+router.post("/categories", verifyToken, requireAdmin, createCategory);
+router.put("/categories/:id", verifyToken, requireAdmin, updateCategory);
+router.patch("/categories/:id", verifyToken, requireAdmin, updateCategory);
+router.delete("/categories/:id", verifyToken, requireAdmin, deleteCategory);
+
+// this is service routes
 router.post("/", verifyToken, requireAdmin, createService);
 router.put("/:id", verifyToken, requireAdmin, updateService);
 router.patch("/:id", verifyToken, requireAdmin, updateService);
