@@ -9,16 +9,7 @@ import cookieParser from 'cookie-parser'
 import { verifyIdTokenMiddleware, cookieAuthMiddleware } from './firebase'
 import { connectDb } from './db'
 import { connectDB } from './config/db'
-import userRoutes from './routes/userRoutes'
-import authRoutes from './routes/authRoutes'
-import adminRoutes from './routes/adminRoutes'
-import productRoutes from './routes/productRoutes'
-import pricingRoutes from './models/pricing/pricing.routes'
-import productsRoutes from './models/products/product.routes'
-import projectsRoutes from './models/projects/project.routes'
-import servicesRoutes from './models/services/service.routes'
-import teamRoutes from './models/team/team.routes'
-import userManagementRoutes from './models/user/user.routes'
+import { registerRoutes } from './routes'
 
 const app = express()
 
@@ -72,33 +63,8 @@ app.use(verifyIdTokenMiddleware)
 // Apply cookie session middleware (must be before routes that need it)
 app.use(cookieAuthMiddleware)
 
-// Mount admin routes
-app.use('/api', adminRoutes)
-
-// Mount auth routes (includes register, login, logout, profile, me)
-app.use('/api', authRoutes)
-
-// Mount user management routes (MongoDB-based - supports both Firebase UID and ObjectId)
-app.use('/api/users', userManagementRoutes)
-
-// Mount product routes
-app.use('/api/products', productRoutes)
-app.use('/api/products', productRoutes)
-
-// Mount pricing routes
-app.use('/api/pricing', pricingRoutes)
-
-// Mount products module routes
-app.use('/api/products-module', productsRoutes)
-
-// Mount projects routes
-app.use('/api/projects', projectsRoutes)
-
-// Mount services routes
-app.use('/api/services', servicesRoutes)
-
-// Mount team routes
-app.use('/api/team', teamRoutes)
+// Register all application routes
+registerRoutes(app)
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
