@@ -3,7 +3,6 @@ import { getDB } from "../../config/db";
 import { ObjectId } from "mongodb";
 import { Order, OrderItem } from "./order.model";
 
-// Helper function to generate unique order number
 const generateOrderNumber = async (): Promise<string> => {
     const db = getDB();
     const year = new Date().getFullYear();
@@ -24,17 +23,14 @@ const generateOrderNumber = async (): Promise<string> => {
     return `ORD-${year}-${String(nextNumber).padStart(4, '0')}`;
 };
 
-// Create a new order
 export const createOrder = async (req: Request, res: Response) => {
     try {
         const db = getDB();
 
-        // Log the incoming request body for debugging
         console.log("Order request body:", JSON.stringify(req.body, null, 2));
 
         const { customer, items, pricing, payment, notes, plan, planName, planPrice, paymentMethod, transactionId, receiverNumber } = req.body;
 
-        // Validate required fields
         if (!customer || !customer.name || !customer.email || !customer.phone) {
             return res.status(400).json({
                 success: false,
@@ -42,12 +38,10 @@ export const createOrder = async (req: Request, res: Response) => {
             });
         }
 
-        // Handle pricing - support multiple formats
         let pricingData: any;
         let planData: any;
 
         if (pricing) {
-            // If pricing object is provided, use it
             pricingData = {
                 subtotal: pricing.subtotal || pricing.grandTotal || 0,
                 grandTotal: pricing.grandTotal || 0,
@@ -57,7 +51,6 @@ export const createOrder = async (req: Request, res: Response) => {
                 shippingCost: pricing.shippingCost
             };
         } else if (plan) {
-            // If plan object is provided
             const price = parseFloat(plan.price?.toString().replace(/[^0-9.]/g, '') || '0');
             pricingData = {
                 subtotal: price,
@@ -66,7 +59,6 @@ export const createOrder = async (req: Request, res: Response) => {
             };
             planData = plan;
         } else if (planPrice) {
-            // If planPrice and planName are provided as separate fields
             const price = parseFloat(planPrice.toString().replace(/[^0-9.]/g, '') || '0');
             pricingData = {
                 subtotal: price,
@@ -87,7 +79,6 @@ export const createOrder = async (req: Request, res: Response) => {
             });
         }
 
-        // Validate pricing values
         if (!pricingData.grandTotal || pricingData.grandTotal <= 0) {
             return res.status(400).json({
                 success: false,
@@ -95,12 +86,10 @@ export const createOrder = async (req: Request, res: Response) => {
             });
         }
 
-        // Create items array if not provided
         let itemsData: OrderItem[];
         if (items && Array.isArray(items) && items.length > 0) {
             itemsData = items;
         } else if (planData) {
-            // Create item from plan data
             itemsData = [{
                 name: planData.name || planName || "Service Plan",
                 description: planData.description,
@@ -115,7 +104,6 @@ export const createOrder = async (req: Request, res: Response) => {
             });
         }
 
-        // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(customer.email)) {
             return res.status(400).json({
@@ -124,7 +112,6 @@ export const createOrder = async (req: Request, res: Response) => {
             });
         }
 
-        // Validate items
         for (const item of itemsData) {
             if (!item.name || !item.quantity || !item.unitPrice || !item.totalPrice) {
                 return res.status(400).json({
@@ -134,7 +121,6 @@ export const createOrder = async (req: Request, res: Response) => {
             }
         }
 
-        // Validate unique transaction ID if provided
         const finalTransactionId = payment?.transactionId || transactionId;
         if (finalTransactionId) {
             const existingOrder = await db.collection("orders").findOne({
@@ -149,16 +135,13 @@ export const createOrder = async (req: Request, res: Response) => {
             }
         }
 
-        // Generate unique order number
         const orderNumber = await generateOrderNumber();
 
-        // Prepare customer data with ObjectId conversion if customerId is provided
         const customerData = {
             ...customer,
             customerId: customer.customerId ? new ObjectId(customer.customerId) : undefined
         };
 
-        // Prepare items with ObjectId conversion
         const finalItems = itemsData.map((item: OrderItem) => ({
             ...item,
             productId: item.productId ? new ObjectId(item.productId) : undefined,

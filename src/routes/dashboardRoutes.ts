@@ -4,7 +4,6 @@ import { verifyToken, requireAdmin } from "../middlewares/auth.middleware";
 
 const router = express.Router();
 
-// Dashboard stats route (admin only)
 router.get("/", verifyToken, requireAdmin, getDashboardStats);
 router.get("/stats", verifyToken, requireAdmin, getDashboardStats);
 

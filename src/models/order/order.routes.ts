@@ -17,16 +17,13 @@ import { verifyToken, requireAdmin } from "../../middlewares/auth.middleware";
 
 const router = express.Router();
 
-// Public routes
-router.post("/",verifyToken, createOrder); // Create order (customers can place orders)
-router.get("/track/:email", trackOrdersByEmail); // Track orders by email (public)
+router.post("/",verifyToken, createOrder);
+router.get("/track/:email", trackOrdersByEmail);
 
-// Authenticated user routes (must come before :id routes)
 router.get("/my-orders", verifyToken, getUserOrders);
-router.get("/:id/status", verifyToken, getOrderById); // Users can view their order status
+router.get("/:id/status", verifyToken, getOrderById);
 router.patch("/:id/cancel", verifyToken, cancelOrder);
 
-// Admin-only routes
 router.get("/", verifyToken, requireAdmin, getAllOrders);
 router.get("/stats", verifyToken, requireAdmin, getOrderStats);
 router.get("/number/:orderNumber", verifyToken, getOrderByOrderNumber);

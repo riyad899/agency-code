@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { getDB } from "../config/db";
 
-// Get dashboard statistics
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
     const db = getDB();
@@ -12,9 +11,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-    /* =========================
-       TOTAL REVENUE (PAID)
-    ========================== */
+    // Total revenue from paid orders
     const revenueAgg = await ordersCol.aggregate([
       { $match: { "payment.status": "paid" } },
       { $group: { _id: null, total: { $sum: "$pricing.grandTotal" } } }
@@ -22,9 +19,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 
     const totalRevenue = revenueAgg[0]?.total || 0;
 
-    /* =========================
-       BASIC COUNTS
-    ========================== */
+    // Get basic counts
     const [
       totalOrders,
       totalUsers,
@@ -37,9 +32,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       ordersCol.countDocuments({ "payment.status": "paid" })
     ]);
 
-    /* =========================
-       MONTHLY GROWTH RATE
-    ========================== */
+    // Calculate monthly growth rate
     const now = new Date();
 
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -80,9 +73,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 
     const growth = `${growthRate >= 0 ? "+" : ""}${growthRate.toFixed(1)}%`;
 
-    /* =========================
-       REVENUE OVERVIEW (6 MONTHS)
-    ========================== */
+    // Revenue overview for last 6 months
     const revenueOverview = { months: [] as string[], values: [] as number[] };
 
     for (let i = 5; i >= 0; i--) {
@@ -106,9 +97,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       revenueOverview.values.push(agg[0]?.total || 0);
     }
 
-    /* =========================
-       PRODUCT DISTRIBUTION
-    ========================== */
+    // Product distribution by category
     const itemsAgg = await ordersCol.aggregate([
       { $match: { "payment.status": "paid" } },
       { $unwind: "$items" },
@@ -153,9 +142,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       }
     ];
 
-    /* =========================
-       ORDERS OVERVIEW (6 MONTHS)
-    ========================== */
+    // Orders overview for last 6 months
     const ordersOverview = { months: [] as string[], orders: [] as number[] };
 
     for (let i = 5; i >= 0; i--) {
@@ -173,9 +160,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       ordersOverview.orders.push(count);
     }
 
-    /* =========================
-       PRICING PLANS
-    ========================== */
+    // Get pricing plans
     const pricingPlans = await pricingCol.find().toArray();
 
     const pricingCount = pricingPlans.map(plan => ({
@@ -184,9 +169,6 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       featureCount: Array.isArray(plan.features) ? plan.features.length : 0
     }));
 
-    /* =========================
-       RESPONSE
-    ========================== */
     return res.status(200).json({
       success: true,
       stats: {
