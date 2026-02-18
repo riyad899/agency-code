@@ -6,3 +6,4 @@ src/config/firebase-service-account.json
 .env.example
 .env.example
 .DS_Store
+.vercel

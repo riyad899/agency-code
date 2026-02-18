@@ -8,12 +8,22 @@ if (!process.env.JWT_SECRET) {
   console.warn('Warning: using default JWT_SECRET. Set JWT_SECRET in production.')
 }
 
-const serviceAccount = require('./config/firebase-service-account.json')
-
+// Initialize Firebase Admin
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  })
+  // Check if we're in production (Vercel) or development
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    // Production: Use environment variable
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    })
+  } else {
+    // Development: Use local JSON file
+    const serviceAccount = require('./config/firebase-service-account.json')
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    })
+  }
 }
 
 export const auth = admin.auth()

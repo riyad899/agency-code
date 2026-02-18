@@ -43,13 +43,31 @@ app.use(cookieParser())
 
 const PORT = process.env.PORT || 4000
 
-// Initialize both database connections
-connectDb().catch((err) => {
-  console.error('Failed to connect to MongoDB (Mongoose)', err)
-})
+// Initialize database connections
+const initializeDatabases = async () => {
+  try {
+    await connectDb()
+    console.log('MongoDB (Mongoose) connected')
+  } catch (err) {
+    console.error('Failed to connect to MongoDB (Mongoose)', err)
+  }
 
-connectDB().catch((err) => {
-  console.error('Failed to connect to MongoDB (Native Driver)', err)
+  try {
+    await connectDB()
+    console.log('MongoDB (Native Driver) connected')
+  } catch (err) {
+    console.error('Failed to connect to MongoDB (Native Driver)', err)
+  }
+}
+
+// For serverless (Vercel), initialize on first request
+let dbInitialized = false
+app.use(async (req, res, next) => {
+  if (!dbInitialized) {
+    await initializeDatabases()
+    dbInitialized = true
+  }
+  next()
 })
 
 // Health check endpoint
@@ -71,7 +89,12 @@ app.get('/', (_req: Request, res: Response) => {
   res.send('Express + TypeScript server')
 })
 
-// Start server
-app.listen(Number(PORT), () => {
-  console.log(`Server running on http://localhost:${PORT}`)
-})
+// Start server only in development (not in Vercel)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(Number(PORT), () => {
+    console.log(`Server running on http://localhost:${PORT}`)
+  })
+}
+
+// Export for Vercel
+export default app
