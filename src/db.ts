@@ -49,6 +49,8 @@ export async function connectDb(): Promise<Db> {
 
   try {
     client = new MongoClient(MONGODB_URI, {
+      tls: true,
+      tlsAllowInvalidCertificates: false,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     })
@@ -56,7 +58,6 @@ export async function connectDb(): Promise<Db> {
     db = client.db()
     console.log('Connected to MongoDB')
 
-    // Create indexes
     await createIndexes()
 
     return db

@@ -12,7 +12,11 @@ export const connectDB = async (): Promise<Db> => {
   }
 
   try {
-    client = new MongoClient(MONGODB_URI);
+    client = new MongoClient(MONGODB_URI, {
+      tls: true,
+      tlsAllowInvalidCertificates: false,
+      serverSelectionTimeoutMS: 5000,
+    });
     await client.connect();
     db = client.db();
     console.log("MongoDB (native driver) connected successfully");

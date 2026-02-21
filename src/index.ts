@@ -3,22 +3,26 @@ import dotenv from 'dotenv'
 // Load environment variables FIRST before any other imports
 dotenv.config()
 
+// Validate environment variables early
+import { validateEnvironmentVariables } from './utils/validateFirebase'
+
+try {
+  validateEnvironmentVariables()
+} catch (error) {
+  console.error('\n❌ Environment Configuration Error:')
+  console.error(error instanceof Error ? error.message : 'Unknown error')
+  console.error('\nPlease check your .env file and ensure all required variables are set.')
+  console.error('See .env.example for reference.\n')
+  process.exit(1)
+}
+
 import express, { Request, Response } from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import { verifyIdTokenMiddleware, cookieAuthMiddleware } from './firebase'
 import { connectDb } from './db'
 import { connectDB } from './config/db'
-import userRoutes from './routes/userRoutes'
-import authRoutes from './routes/authRoutes'
-import adminRoutes from './routes/adminRoutes'
-import productRoutes from './routes/productRoutes'
-import pricingRoutes from './models/pricing/pricing.routes'
-import productsRoutes from './models/products/product.routes'
-import projectsRoutes from './models/projects/project.routes'
-import servicesRoutes from './models/services/service.routes'
-import teamRoutes from './models/team/team.routes'
-import userManagementRoutes from './models/user/user.routes'
+import { registerRoutes } from './routes'
 
 const app = express()
 
@@ -52,13 +56,31 @@ app.use(cookieParser())
 
 const PORT = process.env.PORT || 4000
 
-// Initialize both database connections
-connectDb().catch((err) => {
-  console.error('Failed to connect to MongoDB (Mongoose)', err)
-})
+// Initialize database connections
+const initializeDatabases = async () => {
+  try {
+    await connectDb()
+    console.log('MongoDB (Mongoose) connected')
+  } catch (err) {
+    console.error('Failed to connect to MongoDB (Mongoose)', err)
+  }
 
-connectDB().catch((err) => {
-  console.error('Failed to connect to MongoDB (Native Driver)', err)
+  try {
+    await connectDB()
+    console.log('MongoDB (Native Driver) connected')
+  } catch (err) {
+    console.error('Failed to connect to MongoDB (Native Driver)', err)
+  }
+}
+
+// For serverless (Vercel), initialize on first request
+let dbInitialized = false
+app.use(async (req, res, next) => {
+  if (!dbInitialized) {
+    await initializeDatabases()
+    dbInitialized = true
+  }
+  next()
 })
 
 // Health check endpoint
@@ -72,40 +94,20 @@ app.use(verifyIdTokenMiddleware)
 // Apply cookie session middleware (must be before routes that need it)
 app.use(cookieAuthMiddleware)
 
-// Mount admin routes
-app.use('/api', adminRoutes)
-
-// Mount auth routes (includes register, login, logout, profile, me)
-app.use('/api', authRoutes)
-
-// Mount user management routes (MongoDB-based - supports both Firebase UID and ObjectId)
-app.use('/api/users', userManagementRoutes)
-
-// Mount product routes
-app.use('/api/products', productRoutes)
-app.use('/api/products', productRoutes)
-
-// Mount pricing routes
-app.use('/api/pricing', pricingRoutes)
-
-// Mount products module routes
-app.use('/api/products-module', productsRoutes)
-
-// Mount projects routes
-app.use('/api/projects', projectsRoutes)
-
-// Mount services routes
-app.use('/api/services', servicesRoutes)
-
-// Mount team routes
-app.use('/api/team', teamRoutes)
+// Register all application routes
+registerRoutes(app)
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
   res.send('Express + TypeScript server')
 })
 
-// Start server
-app.listen(Number(PORT), () => {
-  console.log(`Server running on http://localhost:${PORT}`)
-})
+// Start server only in development (not in Vercel)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(Number(PORT), () => {
+    console.log(`Server running on http://localhost:${PORT}`)
+  })
+}
+
+// Export for Vercel
+export default app

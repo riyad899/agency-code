@@ -1,6 +1,9 @@
 import admin from 'firebase-admin'
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
+import { validateFirebaseServiceAccount, FirebaseValidationError } from './utils/validateFirebase'
+import * as fs from 'fs'
+import * as path from 'path'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'
 if (!process.env.JWT_SECRET) {
@@ -8,12 +11,63 @@ if (!process.env.JWT_SECRET) {
   console.warn('Warning: using default JWT_SECRET. Set JWT_SECRET in production.')
 }
 
-const serviceAccount = require('./config/firebase-service-account.json')
-
+// Initialize Firebase Admin with validation
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  })
+  try {
+    let serviceAccount: any;
+
+    // Check if we're in production (Vercel) or development
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      // Production: Use environment variable
+      try {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+      } catch (error) {
+        throw new FirebaseValidationError(
+          'Failed to parse FIREBASE_SERVICE_ACCOUNT environment variable. Must be valid JSON.'
+        )
+      }
+    } else {
+      // Development: Use local JSON file
+      const serviceAccountPath = path.join(__dirname, 'config', 'firebase-service-account.json')
+
+      if (!fs.existsSync(serviceAccountPath)) {
+        throw new FirebaseValidationError(
+          `Firebase service account file not found at: ${serviceAccountPath}\n` +
+          'Please download the service account JSON from Firebase Console:\n' +
+          '1. Go to Firebase Console > Project Settings > Service Accounts\n' +
+          '2. Click "Generate New Private Key"\n' +
+          '3. Save the file as src/config/firebase-service-account.json'
+        )
+      }
+
+      try {
+        const fileContent = fs.readFileSync(serviceAccountPath, 'utf-8')
+        serviceAccount = JSON.parse(fileContent)
+      } catch (error) {
+        throw new FirebaseValidationError(
+          `Failed to read or parse firebase-service-account.json: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+      }
+    }
+
+    // Validate the service account structure and content
+    validateFirebaseServiceAccount(serviceAccount)
+
+    // Initialize Firebase Admin
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    })
+
+    console.log(`✓ Firebase Admin initialized successfully for project: ${serviceAccount.project_id}`)
+  } catch (error) {
+    if (error instanceof FirebaseValidationError) {
+      console.error('\n❌ Firebase Configuration Error:')
+      console.error(error.message)
+      console.error('\nThe application cannot start without valid Firebase credentials.')
+      throw error
+    }
+    throw error
+  }
 }
 
 export const auth = admin.auth()
