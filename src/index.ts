@@ -3,6 +3,19 @@ import dotenv from 'dotenv'
 // Load environment variables FIRST before any other imports
 dotenv.config()
 
+// Validate environment variables early
+import { validateEnvironmentVariables } from './utils/validateFirebase'
+
+try {
+  validateEnvironmentVariables()
+} catch (error) {
+  console.error('\n❌ Environment Configuration Error:')
+  console.error(error instanceof Error ? error.message : 'Unknown error')
+  console.error('\nPlease check your .env file and ensure all required variables are set.')
+  console.error('See .env.example for reference.\n')
+  process.exit(1)
+}
+
 import express, { Request, Response } from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'

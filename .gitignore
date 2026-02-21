@@ -1,9 +1,9 @@
 node_modules/
 dist/
 .env
-src/config/firebase-service-account.json
 .env.local
-.env.example
-.env.example
+.env.production
+src/config/firebase-service-account.json
 .DS_Store
 .vercel
+*.log
