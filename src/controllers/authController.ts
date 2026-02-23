@@ -493,15 +493,26 @@ export async function logout(_req: Request, res: Response) {
  * Get current user profile from Firebase token (accepts Authorization header)
  */
 export async function getProfile(req: Request, res: Response) {
+  console.log('\n=== GET /api/profile ===');
+  console.log('Authorization header:', req.headers.authorization);
+  
   const firebaseUser = (req as any).firebaseUser
-  if (!firebaseUser) return res.status(401).json({ error: 'Unauthorized' })
+  console.log('Firebase user:', firebaseUser ? { uid: firebaseUser.uid, email: firebaseUser.email } : 'NOT FOUND');
+  
+  if (!firebaseUser) {
+    console.log('❌ No Firebase user found - returning 401');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
   try {
     // Try to get user from MongoDB
+    console.log('Fetching user from MongoDB with uid:', firebaseUser.uid);
     const user = await getUsersCollection().findOne({ firebaseUid: firebaseUser.uid })
+    console.log('MongoDB user found:', user ? { uid: user.firebaseUid, email: user.email, role: user.role } : 'NOT FOUND');
 
     if (!user) {
       // User not in DB yet, return Firebase data only
+      console.log('User not in DB, returning Firebase data only');
       return res.json({
         uid: firebaseUser.uid,
         email: firebaseUser.email,
@@ -511,15 +522,19 @@ export async function getProfile(req: Request, res: Response) {
     }
 
     // Return full profile from MongoDB
-    return res.json({
+    const profileData = {
       uid: user.firebaseUid,
       email: user.email,
       displayName: user.displayName,
       phoneNumber: user.phoneNumber,
       photoURL: user.photoURL,
+      role: user.role || 'user',
       createdAt: user.createdAt,
-    })
+    };
+    console.log('✅ Returning profile data:', profileData);
+    return res.json(profileData);
   } catch (err) {
+    console.error('❌ Error in getProfile:', err);
     return res.status(500).json({ error: (err as Error).message })
   }
 }

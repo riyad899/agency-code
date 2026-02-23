@@ -81,14 +81,22 @@ export function signSessionToken(uid: string) {
 export async function verifyIdTokenMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization || ''
   const match = authHeader.match(/Bearer\s+(.*)/i)
-  if (!match) return next()
+  
+  if (!match) {
+    console.log('No Bearer token found in Authorization header');
+    return next();
+  }
 
   const idToken = match[1]
+  console.log('Verifying Firebase ID token...');
+  
   try {
     const decoded = await auth.verifyIdToken(idToken, true)
+    console.log('✅ Token verified successfully:', { uid: decoded.uid, email: decoded.email });
     ;(req as any).firebaseUser = decoded
     return next()
   } catch (err: any) {
+    console.error('❌ Token verification failed:', err.code, err.message);
     if (err && (err.code === 'auth/id-token-revoked' || err.code === 'auth/token-revoked')) {
       return res.status(401).json({ error: 'Token revoked. Please reauthenticate.' })
     }

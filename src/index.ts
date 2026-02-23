@@ -27,8 +27,17 @@ import { registerRoutes } from './routes'
 const app = express()
 
 // CORS configuration for Next.js client
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://agency-blue-two.vercel.app',
+  process.env.FRONTEND_URL
+].filter((origin): origin is string => typeof origin === 'string');
+
+console.log('Allowed CORS origins:', allowedOrigins);
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  origin: allowedOrigins,
   credentials: true, // Allow cookies
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [

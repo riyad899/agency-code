@@ -29,10 +29,22 @@ function isOwner(req: Request, uid: string) {
  */
 export async function getUser(req: Request, res: Response) {
   const uid = req.params.uid
+  console.log('\n=== GET /api/users/:uid ===');
+  console.log('Requested UID:', uid);
+  console.log('Authorization header:', req.headers.authorization);
+  console.log('Cookies:', req.cookies);
+  
+  const firebaseUser = (req as any).firebaseUser;
+  const sessionUser = (req as any).sessionUser;
+  
+  console.log('Firebase user:', firebaseUser ? { uid: firebaseUser.uid, email: firebaseUser.email } : 'NOT FOUND');
+  console.log('Session user:', sessionUser ? { uid: sessionUser.uid } : 'NOT FOUND');
+  
   if (!uid) return res.status(400).json({ error: 'uid required' })
 
   // Check if authenticated
   if (!isAuthenticated(req)) {
+    console.log('❌ Not authenticated - returning 401');
     return res.status(401).json({
       error: 'Unauthorized',
       message: 'You must be logged in to access user data',
@@ -41,7 +53,11 @@ export async function getUser(req: Request, res: Response) {
   }
 
   // Check if user owns this resource
-  if (!isOwner(req, uid as string)) {
+  const ownerCheck = isOwner(req, uid as string);
+  console.log('Owner check result:', ownerCheck);
+  
+  if (!ownerCheck) {
+    console.log('❌ Access denied - user does not own this resource');
     return res.status(403).json({
       error: 'Forbidden',
       message: 'You can only access your own user data',
@@ -50,10 +66,25 @@ export async function getUser(req: Request, res: Response) {
   }
 
   try {
+    console.log('Fetching user from MongoDB...');
     const user = await getUsersCollection().findOne({ firebaseUid: uid })
-    if (!user) return res.status(404).json({ error: 'User not found' })
-    return res.json(user)
+    
+    if (!user) {
+      console.log('❌ User not found in database');
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    console.log('✅ User found:', {
+      uid: user.firebaseUid,
+      email: user.email,
+      displayName: user.displayName,
+      role: user.role || 'user',
+      createdAt: user.createdAt
+    });
+    
+    return res.json(user);
   } catch (err) {
+    console.error('❌ Error in getUser:', err);
     return res.status(500).json({ error: (err as Error).message })
   }
 }
