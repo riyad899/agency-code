@@ -2,7 +2,8 @@
 
 ## Prerequisites
 
-- Node.js (v16 or higher)
+- Node.js (v18 or higher)
+- npm (v9 or higher)
 - MongoDB Atlas account or local MongoDB instance
 - Firebase project with Admin SDK credentials
 - Gmail account with App Password (for email functionality)
@@ -18,7 +19,7 @@ npm install
 
 ### 2. Environment Setup
 
-Copy the example environment file and configure it:
+Copy `.env.example` to `.env` and configure your environment variables:
 
 ```bash
 cp .env.example .env
@@ -26,11 +27,13 @@ cp .env.example .env
 
 Then edit `.env` with your actual credentials:
 
-- `MONGODB_URI`: Your MongoDB connection string
-- `FIREBASE_API_KEY`: Firebase project API key
-- `JWT_SECRET`: Random secure string for JWT signing
-- `ADMIN_SECRET`: Random secure string for admin authentication
-- `SMTP_USER` & `SMTP_PASS`: Your email and app password
+Required environment variables:
+- `MONGODB_URI` - MongoDB connection string
+- `JWT_SECRET` - Secret key for JWT tokens (random secure string)
+- `FIREBASE_API_KEY` - Firebase API key
+- `ADMIN_SECRET` - Admin authentication secret (random secure string)
+- `SMTP_USER` & `SMTP_PASS` - Your email and app password
+- `FRONTEND_URL` - Frontend application URL
 
 ### 3. Firebase Service Account Setup
 
@@ -42,15 +45,15 @@ Then edit `.env` with your actual credentials:
 
 **Important:** Never commit this file to Git (it's already in .gitignore)
 
-### 4. Run Development Server
+### 4. Development
 
 ```bash
 npm run dev
 ```
 
-The server will start on `http://localhost:4000` (or the PORT you specified in `.env`).
+This runs the server on `http://localhost:4000` by default (or the PORT you specified in `.env`).
 
-### 5. Build and Run (Production)
+### 5. Build and Start (Production)
 
 ```bash
 npm run build
@@ -78,6 +81,14 @@ src/
 - `POST /api/auth/*` - Authentication endpoints
 - `GET /api/products/*` - Product endpoints
 - And more... (see routes folder)
+
+## Architecture Notes
+
+This project uses two MongoDB connection modules:
+- `src/db.ts` - Legacy connection with collection helpers, indexes, and type interfaces (used by auth, user, product routes)
+- `src/config/db.ts` - Newer native driver connection (used by newer modules: pricing, products, projects, services, team)
+
+Both connections point to the same database and work concurrently.
 
 ## Deployment
 
