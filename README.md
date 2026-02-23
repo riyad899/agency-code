@@ -96,6 +96,16 @@ This project is configured for Vercel deployment. The `vercel.json` file handles
 
 ## Troubleshooting
 
+### MongoDB Connection Issues (Node.js v18+)
+
+If you experience `querySrv ECONNREFUSED` or similar DNS errors:
+- **See [MONGODB_FIX.md](./MONGODB_FIX.md) for detailed solutions**
+- Quick fix: Add a fallback connection string in `.env`:
+  ```
+  MONGODB_URI_FALLBACK=mongodb://host1:27017,host2:27017/database?...
+  ```
+- Get the standard connection string from MongoDB Atlas: Connect → Drivers → Standard Connection String
+
 ### Database Connection Issues
 - Verify your `MONGODB_URI` is correct
 - Check if your IP is whitelisted in MongoDB Atlas
