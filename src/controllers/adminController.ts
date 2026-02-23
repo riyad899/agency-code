@@ -10,13 +10,26 @@ export async function setUserRole(req: Request, res: Response) {
   const adminSecretEnv = process.env.ADMIN_SECRET
   const headerSecret = (req.headers['x-admin-secret'] as string) || undefined
 
+  console.log('🔐 Set Role Request:');
+  console.log('  Admin Secret from ENV:', adminSecretEnv ? '✓ Set' : '✗ Not set');
+  console.log('  Header Secret:', headerSecret ? '✓ Provided' : '✗ Not provided');
+  console.log('  Secrets match:', headerSecret === adminSecretEnv);
+
   const firebaseUser = (req as any).firebaseUser
+  console.log('  Firebase User:', firebaseUser ? `✓ ${firebaseUser.uid}` : '✗ Not authenticated');
+  
   const hasAdminClaim = !!(firebaseUser && firebaseUser.admin === true)
   const hasHeaderSecret = !!(headerSecret && adminSecretEnv && headerSecret === adminSecretEnv)
 
+  console.log('  Has Admin Claim:', hasAdminClaim);
+  console.log('  Has Valid Header Secret:', hasHeaderSecret);
+
   if (!hasAdminClaim && !hasHeaderSecret) {
+    console.log('❌ Access denied: No valid admin credentials');
     return res.status(403).json({ error: 'Forbidden: Admin access required' })
   }
+
+  console.log('✅ Admin access granted');
 
   const { uid, role } = req.body
   if (!uid || !role) {
