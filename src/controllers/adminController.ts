@@ -3,6 +3,65 @@ import { auth } from '../firebase'
 import { getUsersCollection } from '../db'
 
 /**
+ * POST /api/admin/set-role
+ * Admin-only endpoint to set user role (admin or user)
+ */
+export async function setUserRole(req: Request, res: Response) {
+  const adminSecretEnv = process.env.ADMIN_SECRET
+  const headerSecret = (req.headers['x-admin-secret'] as string) || undefined
+
+  const firebaseUser = (req as any).firebaseUser
+  const hasAdminClaim = !!(firebaseUser && firebaseUser.admin === true)
+  const hasHeaderSecret = !!(headerSecret && adminSecretEnv && headerSecret === adminSecretEnv)
+
+  if (!hasAdminClaim && !hasHeaderSecret) {
+    return res.status(403).json({ error: 'Forbidden: Admin access required' })
+  }
+
+  const { uid, role } = req.body
+  if (!uid || !role) {
+    return res.status(400).json({ error: 'uid and role required' })
+  }
+
+  if (role !== 'admin' && role !== 'user') {
+    return res.status(400).json({ error: 'role must be either "admin" or "user"' })
+  }
+
+  try {
+    // Update Firebase custom claims
+    const customClaims = role === 'admin' ? { admin: true } : { admin: false }
+    await auth.setCustomUserClaims(uid, customClaims)
+
+    // Update MongoDB role
+    const result = await getUsersCollection().updateOne(
+      { firebaseUid: uid },
+      { 
+        $set: { 
+          role: role,
+          updatedAt: new Date()
+        }
+      }
+    )
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'User not found in database' })
+    }
+
+    console.log(`✅ User ${uid} role set to: ${role}`)
+
+    return res.status(200).json({ 
+      success: true,
+      message: `User role set to ${role}`,
+      uid: uid,
+      role: role
+    })
+  } catch (err) {
+    console.error('Set user role error:', err)
+    return res.status(500).json({ error: (err as Error).message })
+  }
+}
+
+/**
  * POST /api/create-user
  * Admin-only endpoint to create users via Firebase Admin SDK
  */

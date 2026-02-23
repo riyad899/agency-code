@@ -33,13 +33,13 @@ export async function getUser(req: Request, res: Response) {
   console.log('Requested UID:', uid);
   console.log('Authorization header:', req.headers.authorization);
   console.log('Cookies:', req.cookies);
-  
+
   const firebaseUser = (req as any).firebaseUser;
   const sessionUser = (req as any).sessionUser;
-  
+
   console.log('Firebase user:', firebaseUser ? { uid: firebaseUser.uid, email: firebaseUser.email } : 'NOT FOUND');
   console.log('Session user:', sessionUser ? { uid: sessionUser.uid } : 'NOT FOUND');
-  
+
   if (!uid) return res.status(400).json({ error: 'uid required' })
 
   // Check if authenticated
@@ -55,7 +55,7 @@ export async function getUser(req: Request, res: Response) {
   // Check if user owns this resource
   const ownerCheck = isOwner(req, uid as string);
   console.log('Owner check result:', ownerCheck);
-  
+
   if (!ownerCheck) {
     console.log('❌ Access denied - user does not own this resource');
     return res.status(403).json({
@@ -68,12 +68,12 @@ export async function getUser(req: Request, res: Response) {
   try {
     console.log('Fetching user from MongoDB...');
     const user = await getUsersCollection().findOne({ firebaseUid: uid })
-    
+
     if (!user) {
       console.log('❌ User not found in database');
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     console.log('✅ User found:', {
       uid: user.firebaseUid,
       email: user.email,
@@ -81,7 +81,7 @@ export async function getUser(req: Request, res: Response) {
       role: user.role || 'user',
       createdAt: user.createdAt
     });
-    
+
     return res.json(user);
   } catch (err) {
     console.error('❌ Error in getUser:', err);

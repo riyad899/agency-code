@@ -495,10 +495,10 @@ export async function logout(_req: Request, res: Response) {
 export async function getProfile(req: Request, res: Response) {
   console.log('\n=== GET /api/profile ===');
   console.log('Authorization header:', req.headers.authorization);
-  
+
   const firebaseUser = (req as any).firebaseUser
   console.log('Firebase user:', firebaseUser ? { uid: firebaseUser.uid, email: firebaseUser.email } : 'NOT FOUND');
-  
+
   if (!firebaseUser) {
     console.log('❌ No Firebase user found - returning 401');
     return res.status(401).json({ error: 'Unauthorized' });

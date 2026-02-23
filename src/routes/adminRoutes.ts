@@ -1,8 +1,9 @@
 import { Router } from 'express'
-import { createUser } from '../controllers/adminController'
+import { createUser, setUserRole } from '../controllers/adminController'
 
 const router = Router()
 
-router.post('/create-user', createUser)
+router.post('/admin/create-user', createUser)
+router.post('/admin/set-role', setUserRole)
 
 export default router

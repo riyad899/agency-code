@@ -81,7 +81,7 @@ export function signSessionToken(uid: string) {
 export async function verifyIdTokenMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization || ''
   const match = authHeader.match(/Bearer\s+(.*)/i)
-  
+
   if (!match) {
     console.log('No Bearer token found in Authorization header');
     return next();
@@ -89,7 +89,7 @@ export async function verifyIdTokenMiddleware(req: Request, res: Response, next:
 
   const idToken = match[1]
   console.log('Verifying Firebase ID token...');
-  
+
   try {
     const decoded = await auth.verifyIdToken(idToken, true)
     console.log('✅ Token verified successfully:', { uid: decoded.uid, email: decoded.email });
